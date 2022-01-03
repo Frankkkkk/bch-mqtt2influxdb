@@ -7,7 +7,6 @@ import json
 from datetime import datetime
 import paho.mqtt.client
 from paho.mqtt.client import topic_matches_sub
-import influxdb
 import jsonpath_ng
 import requests
 import base64
@@ -18,6 +17,7 @@ import py_expression_eval
 import pycron
 from .expr import variable_to_jsonpath
 from .config import json_path
+from .db import InfluxDB
 
 
 class Mqtt2InfluxDB:
@@ -27,11 +27,7 @@ class Mqtt2InfluxDB:
         self._points = config['points']
         self._config = config
 
-        self._influxdb = influxdb.InfluxDBClient(config['influxdb']['host'],
-                                                 config['influxdb']['port'],
-                                                 config['influxdb'].get('username', 'root'),
-                                                 config['influxdb'].get('password', 'root'),
-                                                 ssl=config['influxdb'].get('ssl', False))
+        self._influxdb = InfluxDB(config)
 
         self._mqtt = paho.mqtt.client.Client()
 
@@ -49,14 +45,11 @@ class Mqtt2InfluxDB:
         self._mqtt.on_message = self._on_mqtt_message
 
     def run(self):
-        logging.debug('InfluxDB create database %s', self._config['influxdb']['database'])
-        self._influxdb.create_database(self._config['influxdb']['database'])
-        self._influxdb.switch_database(self._config['influxdb']['database'])
+        self._influxdb.create_db(self._config['influxdb']['database'])
 
         for point in self._points:
             if 'database' in point:
-                logging.debug('InfluxDB create database %s', point['database'])
-                self._influxdb.create_database(point['database'])
+                self._influxdb.create_db(point['database'])
 
         logging.info('MQTT broker host: %s, port: %d, use tls: %s',
                      self._config['mqtt']['host'],
