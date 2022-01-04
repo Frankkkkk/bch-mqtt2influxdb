@@ -17,7 +17,7 @@ import py_expression_eval
 import pycron
 from .expr import variable_to_jsonpath
 from .config import json_path
-from .db import InfluxDB
+from .db import InfluxDB, OpenTSDB
 
 
 class Mqtt2InfluxDB:
@@ -27,7 +27,17 @@ class Mqtt2InfluxDB:
         self._points = config['points']
         self._config = config
 
-        self._influxdb = InfluxDB(config)
+        self._tsdb_clients = []
+
+        if 'influxdb' in config:
+            c = InfluxDB(config)
+            self._tsdb_clients.append(c)
+            c.create_db(self._config['influxdb']['database'])
+        if 'opentsdb' in config:
+            self._tsdb_clients.append(OpenTSDB(config))
+
+        if self._tsdb_clients == []:
+            raise Exception('No TSDB client defined')
 
         self._mqtt = paho.mqtt.client.Client()
 
@@ -45,11 +55,10 @@ class Mqtt2InfluxDB:
         self._mqtt.on_message = self._on_mqtt_message
 
     def run(self):
-        self._influxdb.create_db(self._config['influxdb']['database'])
-
         for point in self._points:
             if 'database' in point:
-                self._influxdb.create_db(point['database'])
+                for client in self._tsdb_clients:
+                    client.create_db(point['database'])
 
         logging.info('MQTT broker host: %s, port: %d, use tls: %s',
                      self._config['mqtt']['host'],
@@ -176,9 +185,8 @@ class Mqtt2InfluxDB:
                     if len(record['tags']) != len(point['tags']):
                         logging.warning('different number of tags')
 
-                logging.debug('influxdb write %s', record)
-
-                self._influxdb.write_points([record], database=point.get('database', None))
+                for client in self._tsdb_clients:
+                    client.write_points([record], database=point.get('database', None))
 
                 if 'http' in self._config:
                     http_record = {}

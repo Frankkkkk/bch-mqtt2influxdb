@@ -7,6 +7,10 @@ influxdb:
   port: 8086
   database: node
 
+opentsdb:
+  host: 127.0.0.1
+  port: 8081
+
 points:
   - measurement: temperature
     topic: node/+/thermometer/+/temperature

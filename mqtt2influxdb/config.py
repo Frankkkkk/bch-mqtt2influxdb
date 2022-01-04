@@ -76,7 +76,7 @@ schema = Schema({
         Optional('password'): And(str, len)
     },
 
-    'influxdb': {
+    Optional('influxdb'): {
         'host': And(str, len),
         'port': And(int, port_range),
         Optional('username'): And(str, len),
@@ -84,6 +84,11 @@ schema = Schema({
         'database': And(str, len),
         Optional('ssl'): bool
     },
+    Optional('opentsdb'): {
+        'host': And(str, len),
+        Optional('port'): And(int, port_range),
+    },
+
     Optional("base64decode"): {
         'source': And(str, len, Use(str_or_jsonPath)),
         'target': And(str, len)
